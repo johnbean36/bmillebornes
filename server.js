@@ -5,6 +5,11 @@ let usersConnected = [];
 
 io.on('connection', (socket)=>{
     console.log('A user connected');
+    if(usersConnected.length > 4){
+        socket.send("Server is currently full");
+        socket.disconnect(true);
+        console.log('A user was disconnected');
+    }
     if(!usersConnected.includes(socket.id)){
         usersConnected.push(socket.id);
     }
