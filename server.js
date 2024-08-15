@@ -28,6 +28,8 @@ io.on('connection', (socket)=>{
         const user = usersConnected.get(socket.id);
         if(user){
             user.name = pName;
+            socket.broacast.emit('new_user', usersConnected);
+            socket.emit('new_user', usersConnected);
         }
     })
 
