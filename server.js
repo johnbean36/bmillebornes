@@ -10,13 +10,51 @@ const io = new Server(server, {
 });
 
 let usersConnected = new Map();
+let currentRooms = [];
+let gameNumber = new Map();
+
+function addRoom(){
+    let count = 0;
+    while(1){
+        let room = Math.floor(Math.random() * 100000);
+        if(!currentRooms.has(room)){
+            currentRooms.set(room);
+            gameNumber.set(room, {started: false});
+            return false;
+        }
+        if(count > 10){
+            return true;
+        }
+        count += 1;
+    }
+    
+}
 
 io.on('connection', (socket)=>{
     console.log('A user connected');
-    if(usersConnected.size > 4){
-        socket.emit('full');
-        socket.disconnect(true);
-        console.log('A user was disconnected');
+    if(currentRooms.size === 0){
+        let error = addRoom();
+        if(error === true){
+            socket.emit('full');
+        }
+        else{
+            currentRooms.forEach((room)=>{
+                let roomData = io.sockets.adapter.rooms.get(room);
+                if(roomData && roomData.size < 4){
+                    let gameData = gameNumber.get(room);
+                    if(gameData.started == false){
+                        socket.join(room);
+                        if(!gameData.players){
+                            gameData.players = [];
+                        }
+                        gameData.players.push(socket.id);
+                    }
+                }
+            })
+        }
+    }
+    else{
+
     }
     if(!usersConnected.has(socket.id)){
         usersConnected.set(socket.id, {});
