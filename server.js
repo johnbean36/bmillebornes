@@ -12,6 +12,11 @@ const io = new Server(server, {
 let usersConnected = new Map();
 let currentRooms = [];
 let gameNumber = new Map();
+let user;
+
+function startGame(room){
+
+}
 
 function addRoom(){
     let count = 0;
@@ -40,37 +45,65 @@ io.on('connection', (socket)=>{
     if(currentRooms.length === 0){
         let error = addRoom();
         if(error === true){
-            socket.emit('full');
+            socket.emit('message', "error creating room");
         }
         else{
-            currentRooms.forEach((room)=>{
-                console.log(room);
-                let roomData = io.sockets.adapter.rooms.get(room);
-                if(roomData && roomData.size < 4){
-                    let gameData = gameNumber.get(room);
-                    if(gameData.started == false){
-                        socket.join(room);
-                        if(!gameData.players){
-                            gameData.players = [];
-                        }
-                        gameData.players.push(socket.id);
-                    }
-                }
-                else{
-                    socket.join(room);
-                    let gameData = gameNumber.get(room);
-                    gameData.players = [];
-                    gameData.players.push(socket.id);
-                }
-            })
-        }
+            let room = currentRooms[0];
+            socket.join(room);
+            let gameData = gameNumber.get(room);
+            gameData.players = [];
+            gameData.players.push(socket.id);
+            user = usersConnected.get(socket.id);
+            user.room = room;
+            return;
+            }
     }
-    else{
-        
+    else if(currentRooms.length > 0){
+        let joined = false;
+        currentRooms.forEach((room)=>{
+        let roomData = io.sockets.adapter.rooms.get(room);
+        if(roomData && roomData.size < 4){
+            let gameData = gameNumber.get(room);
+            if(gameData.started == false){
+                socket.join(room);
+                if(!gameData.players){
+                    gameData.players = [];
+                }
+                gameData.players.push(socket.id);
+                user = usersConnected.get(socket.id);
+                user.room = room;
+                console.log("second through 4th player")
+                joined = true;
+                }
+            }
+        })
+        if(joined === false){
+            let error = addRoom();
+            if(error === true){
+                socket.emit("message", "error creating room");
+                console.log("error");
+                return;
+            }
+            let room = currentRooms[currentRooms.length - 1];
+            socket.join(room)
+            let roomData = io.sockets.adapter.rooms.get(room);
+            if(roomData && roomData.size < 4){
+                let gameData = gameNumber.get(room);
+                if(gameData.started == false){
+                    if(!gameData.players){
+                        gameData.players = [];
+                    }
+                    gameData.players.push(socket.id);
+                    user = usersConnected.get(socket.id);
+                    user.room = room;
+                    console.log("new room, first player");
+                }
+            }
+        }
     }
 
     socket.on('name', (pName)=>{
-        const user = usersConnected.get(socket.id);
+        user = usersConnected.get(socket.id);
         if(user){
             user.name = pName;
             socket.broadcast.emit('new_user', usersConnected);
@@ -81,11 +114,28 @@ io.on('connection', (socket)=>{
     socket.on('disconnect', ()=>{
         console.log('A user disconnected');
         if(usersConnected.has(socket.id)){
+            user = usersConnected.get(socket.id);
+            let game = gameNumber.get(user.room);
+            if(game){
+                let index = game.players.findIndex((player) => player === socket.id);
+                game.players.splice(index, 1);
+                io.to(user.room).emit('size', game.players.length);
+                if(game.players.length === 0){
+                    let roomIndex = currentRooms.findIndex((room)=> room === game);
+                    if(roomIndex !== -1){
+                        currentRooms.splice(roomIndex, 1);
+                    }
+                    gameNumber.delete(user.room);
+                }
+
+            }
             usersConnected.delete(socket.id);
-            socket.broadcast.emit('size', usersConnected.size);
         }
     })
+
 })
+ 
+
 server.listen(3000, ()=>{
     console.log('listening on localhost:3000');
 })
