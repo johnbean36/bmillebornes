@@ -5,7 +5,7 @@ const { Server } = require('socket.io');
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3000"
+        origin: "http://localhost:5173"
     }
 });
 
@@ -17,8 +17,8 @@ function addRoom(){
     let count = 0;
     while(1){
         let room = Math.floor(Math.random() * 100000);
-        if(!currentRooms.has(room)){
-            currentRooms.set(room);
+        if(!currentRooms.includes(room)){
+            currentRooms.push(room);
             gameNumber.set(room, {started: false});
             return false;
         }
@@ -32,13 +32,19 @@ function addRoom(){
 
 io.on('connection', (socket)=>{
     console.log('A user connected');
-    if(currentRooms.size === 0){
+    if(!usersConnected.has(socket.id)){
+        usersConnected.set(socket.id, {name: ""});
+        socket.broadcast.emit('size', usersConnected.size);
+        socket.emit('size', usersConnected.size);
+    }
+    if(currentRooms.length === 0){
         let error = addRoom();
         if(error === true){
             socket.emit('full');
         }
         else{
             currentRooms.forEach((room)=>{
+                console.log(room);
                 let roomData = io.sockets.adapter.rooms.get(room);
                 if(roomData && roomData.size < 4){
                     let gameData = gameNumber.get(room);
@@ -50,23 +56,24 @@ io.on('connection', (socket)=>{
                         gameData.players.push(socket.id);
                     }
                 }
+                else{
+                    socket.join(room);
+                    let gameData = gameNumber.get(room);
+                    gameData.players = [];
+                    gameData.players.push(socket.id);
+                }
             })
         }
     }
     else{
+        
+    }
 
-    }
-    if(!usersConnected.has(socket.id)){
-        usersConnected.set(socket.id, {});
-        socket.broadcast.emit('size', usersConnected.size);
-        socket.emit('size', usersConnected.size);
-    }
-    
     socket.on('name', (pName)=>{
         const user = usersConnected.get(socket.id);
         if(user){
             user.name = pName;
-            socket.broacast.emit('new_user', usersConnected);
+            socket.broadcast.emit('new_user', usersConnected);
             socket.emit('new_user', usersConnected);
         }
     })
