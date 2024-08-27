@@ -32,15 +32,15 @@ function addRoom(){
         }
         count += 1;
     }
-    
 }
 
+
 io.on('connection', (socket)=>{
+    let roomData;
+    let gameData;
     console.log('A user connected');
     if(!usersConnected.has(socket.id)){
         usersConnected.set(socket.id, {name: ""});
-        socket.broadcast.emit('size', usersConnected.size);
-        socket.emit('size', usersConnected.size);
     }
     if(currentRooms.length === 0){
         let error = addRoom();
@@ -50,7 +50,10 @@ io.on('connection', (socket)=>{
         else{
             let room = currentRooms[0];
             socket.join(room);
-            let gameData = gameNumber.get(room);
+            roomData = io.sockets.adapter.rooms.get(room);
+            socket.emit("own_id", socket.id);
+            io.to(room).emit("size", roomData.size);
+            gameData = gameNumber.get(room);
             gameData.players = [];
             gameData.players.push(socket.id);
             user = usersConnected.get(socket.id);
@@ -61,18 +64,22 @@ io.on('connection', (socket)=>{
     else if(currentRooms.length > 0){
         let joined = false;
         currentRooms.forEach((room)=>{
-        let roomData = io.sockets.adapter.rooms.get(room);
+        roomData = io.sockets.adapter.rooms.get(room);
         if(roomData && roomData.size < 4){
-            let gameData = gameNumber.get(room);
+            gameData = gameNumber.get(room);
             if(gameData.started == false){
                 socket.join(room);
+                socket.emit("own_id", socket.id);
+                io.to(room).emit("size", roomData.size);
                 if(!gameData.players){
                     gameData.players = [];
                 }
                 gameData.players.push(socket.id);
                 user = usersConnected.get(socket.id);
                 user.room = room;
-                console.log("second through 4th player")
+                if(roomData.size === 4){
+                    startGame(room);
+                }
                 joined = true;
                 }
             }
@@ -86,7 +93,9 @@ io.on('connection', (socket)=>{
             }
             let room = currentRooms[currentRooms.length - 1];
             socket.join(room)
-            let roomData = io.sockets.adapter.rooms.get(room);
+            roomData = io.sockets.adapter.rooms.get(room);
+            socket.emit("own_id", socket.id);
+            io.to(room).emit("size", roomData.size);
             if(roomData && roomData.size < 4){
                 let gameData = gameNumber.get(room);
                 if(gameData.started == false){
@@ -96,7 +105,6 @@ io.on('connection', (socket)=>{
                     gameData.players.push(socket.id);
                     user = usersConnected.get(socket.id);
                     user.room = room;
-                    console.log("new room, first player");
                 }
             }
         }
@@ -104,10 +112,18 @@ io.on('connection', (socket)=>{
 
     socket.on('name', (pName)=>{
         user = usersConnected.get(socket.id);
+        let gameData;
         if(user){
             user.name = pName;
-            socket.broadcast.emit('new_user', usersConnected);
-            socket.emit('new_user', usersConnected);
+            socket.to(user.room).emit('new_user', {'name': pName, "id": socket.id});
+            gameData = gameNumber.get(user.room);
+            if(gameData.players.length > 1){
+                gameData.players.forEach((player)=>{
+                    if(player != socket.id){
+                        socket.emit("new_user", {name: `${usersConnected.get(player)}`, id: player});
+                    }
+                });
+            }
         }
     })
 
