@@ -45,17 +45,17 @@ io.on('connection', (socket)=>{
     if(currentRooms.length === 0){
         let error = addRoom();
         if(error === true){
-            socket.emit('message', "error creating room");
+            socket.emit("error", "Could not create room");
         }
         else{
             let room = currentRooms[0];
             socket.join(room);
             roomData = io.sockets.adapter.rooms.get(room);
             socket.emit("own_id", socket.id);
-            io.to(room).emit("size", roomData.size);
             gameData = gameNumber.get(room);
             gameData.players = [];
             gameData.players.push(socket.id);
+            io.to(room).emit("size", gameData.players.length);
             user = usersConnected.get(socket.id);
             user.room = room;
             return;
@@ -69,12 +69,12 @@ io.on('connection', (socket)=>{
             gameData = gameNumber.get(room);
             if(gameData.started == false){
                 socket.join(room);
-                socket.emit("own_id", socket.id);
-                io.to(room).emit("size", roomData.size);
+                socket.emit("own_id", socket.id)
                 if(!gameData.players){
                     gameData.players = [];
                 }
                 gameData.players.push(socket.id);
+                io.to(room).emit("size", gameData.players.length);
                 user = usersConnected.get(socket.id);
                 user.room = room;
                 if(roomData.size === 4){
@@ -87,7 +87,7 @@ io.on('connection', (socket)=>{
         if(joined === false){
             let error = addRoom();
             if(error === true){
-                socket.emit("message", "error creating room");
+                socket.emit("error", "Error creating room");
                 console.log("error");
                 return;
             }
@@ -95,7 +95,6 @@ io.on('connection', (socket)=>{
             socket.join(room)
             roomData = io.sockets.adapter.rooms.get(room);
             socket.emit("own_id", socket.id);
-            io.to(room).emit("size", roomData.size);
             if(roomData && roomData.size < 4){
                 let gameData = gameNumber.get(room);
                 if(gameData.started == false){
@@ -103,6 +102,7 @@ io.on('connection', (socket)=>{
                         gameData.players = [];
                     }
                     gameData.players.push(socket.id);
+                    io.to(room).emit("size", gameData.players.length);
                     user = usersConnected.get(socket.id);
                     user.room = room;
                 }
@@ -115,12 +115,17 @@ io.on('connection', (socket)=>{
         let gameData;
         if(user){
             user.name = pName;
-            socket.to(user.room).emit('new_user', {'name': pName, "id": socket.id});
+            gameData = gameNumber.get(user.room);
+            for(let x = 0; x < gameData.players.length; x++){
+                if(gameData.players[x] != socket.id){
+                    io.to(gameData.players[x]).emit("new_user", {name: pName, id: socket.id});
+                }
+            }
             gameData = gameNumber.get(user.room);
             if(gameData.players.length > 1){
                 gameData.players.forEach((player)=>{
                     if(player != socket.id){
-                        socket.emit("new_user", {name: `${usersConnected.get(player)}`, id: player});
+                        socket.emit("new_user", {name: pName, id: player});
                     }
                 });
             }
