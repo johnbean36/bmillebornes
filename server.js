@@ -12,7 +12,6 @@ const io = new Server(server, {
 let usersConnected = new Map();
 let currentRooms = [];
 let gameNumber = new Map();
-let user;
 
 function startGame(room){
 
@@ -36,6 +35,7 @@ function addRoom(){
 
 
 io.on('connection', (socket)=>{
+    let user;
     let roomData;
     let gameData;
     console.log('A user connected');
@@ -46,6 +46,7 @@ io.on('connection', (socket)=>{
         let error = addRoom();
         if(error === true){
             socket.emit("error", "Could not create room");
+            console.log("error");
         }
         else{
             let room = currentRooms[0];
@@ -58,7 +59,6 @@ io.on('connection', (socket)=>{
             io.to(room).emit("size", gameData.players.length);
             user = usersConnected.get(socket.id);
             user.room = room;
-            return;
             }
     }
     else if(currentRooms.length > 0){
@@ -109,7 +109,6 @@ io.on('connection', (socket)=>{
             }
         }
     }
-
     socket.on('name', (pName)=>{
         user = usersConnected.get(socket.id);
         let gameData;
@@ -125,7 +124,8 @@ io.on('connection', (socket)=>{
             if(gameData.players.length > 1){
                 gameData.players.forEach((player)=>{
                     if(player != socket.id){
-                        socket.emit("new_user", {name: pName, id: player});
+                        user = usersConnected.get(player);
+                        socket.emit("new_user", {name: user.name, id: player});
                     }
                 });
             }
