@@ -13,10 +13,6 @@ let usersConnected = new Map();
 let currentRooms = [];
 let gameNumber = new Map();
 
-function startGame(room){
-
-}
-
 function addRoom(){
     let count = 0;
     while(1){
@@ -32,7 +28,6 @@ function addRoom(){
         count += 1;
     }
 }
-
 
 io.on('connection', (socket)=>{
     let user;
@@ -76,7 +71,7 @@ io.on('connection', (socket)=>{
                 user = usersConnected.get(socket.id);
                 user.room = room;
                 if(roomData.size === 4){
-                    startGame(room);
+                    io.to(room).emit("start");
                 }
                 joined = true;
                 }
@@ -94,7 +89,7 @@ io.on('connection', (socket)=>{
             roomData = io.sockets.adapter.rooms.get(room);
             socket.emit("own_id", socket.id);
             if(roomData && roomData.size < 4){
-                let gameData = gameNumber.get(room);
+                gameData = gameNumber.get(room);
                 if(gameData.started == false){
                     if(!gameData.players){
                         gameData.players = [];
@@ -108,10 +103,8 @@ io.on('connection', (socket)=>{
         }
     }
     socket.on('name', (pName)=>{
-        let user;
         user = usersConnected.get(socket.id);
         user.name = pName;
-        let gameData;
         let playerNames = [];
         if(user){
             gameData = gameNumber.get(user.room);
@@ -120,9 +113,43 @@ io.on('connection', (socket)=>{
                 playerNames.push(user.name);
             })
             user = usersConnected.get(socket.id);
-            console.log(playerNames);
-            console.log(gameData.players);
             io.to(user.room).emit("new_user", {names: playerNames, ids: gameData.players});
+        }
+    })
+
+    socket.on('get_names', ()=>{
+        const user = usersConnected.get(socket.id);
+        const gameData = gameNumber.get(user.room);
+        if(gameData && gameData.players){
+            socket.emit('snames', gameData.players);
+        }
+    })
+
+    socket.on('fdeal', ()=>{
+        user = usersConnected.get(socket.id);
+        gameData = gameNumber.get(user.room);
+        let temp = [];
+        if(gameData.deck){
+            temp = [];
+            for(let x = 0; x < 6; x++){
+                temp.push(gameData.deck[gameData.index])
+                gameData.index += 1;
+            }
+            socket.emit('new_deck', temp);
+        }
+        else{
+            gameData.deck = [];
+            for(let i = 0; i < 105; i++){
+                temp.push(i);
+            }
+            gameData.deck = temp.sort(()=> 0.5 - Math.random());
+            temp = [];
+            gameData.index = 0;
+            for(let x = 0; x < 6; x++){
+                temp.push(gameData.deck[gameData.index])
+                gameData.index += 1;
+            }
+            socket.emit('new_deck', temp);
         }
     })
 
