@@ -56,7 +56,6 @@ io.on('connection', (socket)=>{
             gameData = gameNumber.get(room);
             gameData.players = [];
             gameData.players.push(socket.id);
-            io.to(room).emit("size", gameData.players.length);
             user = usersConnected.get(socket.id);
             user.room = room;
             }
@@ -74,7 +73,6 @@ io.on('connection', (socket)=>{
                     gameData.players = [];
                 }
                 gameData.players.push(socket.id);
-                io.to(room).emit("size", gameData.players.length);
                 user = usersConnected.get(socket.id);
                 user.room = room;
                 if(roomData.size === 4){
@@ -110,25 +108,21 @@ io.on('connection', (socket)=>{
         }
     }
     socket.on('name', (pName)=>{
+        let user;
         user = usersConnected.get(socket.id);
+        user.name = pName;
         let gameData;
+        let playerNames = [];
         if(user){
-            user.name = pName;
             gameData = gameNumber.get(user.room);
-            for(let x = 0; x < gameData.players.length; x++){
-                if(gameData.players[x] != socket.id){
-                    io.to(gameData.players[x]).emit("new_user", {name: pName, id: socket.id});
-                }
-            }
-            gameData = gameNumber.get(user.room);
-            if(gameData.players.length > 1){
-                gameData.players.forEach((player)=>{
-                    if(player != socket.id){
-                        user = usersConnected.get(player);
-                        socket.emit("new_user", {name: user.name, id: player});
-                    }
-                });
-            }
+            gameData.players.forEach((player)=>{
+                user = usersConnected.get(player);
+                playerNames.push(user.name);
+            })
+            user = usersConnected.get(socket.id);
+            console.log(playerNames);
+            console.log(gameData.players);
+            io.to(user.room).emit("new_user", {names: playerNames, ids: gameData.players});
         }
     })
 
